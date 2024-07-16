@@ -96,7 +96,7 @@ def timestamps(
 
     model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                 model='silero_vad',
-                                force_reload=True)
+                                force_reload=False)
 
     (get_speech_timestamps, _, read_audio, *_) = utils
 
@@ -121,7 +121,7 @@ def timestamps(
     return speech_timestamps
 
 @app.command()
-def timestamps_seconds(
+def voice_timestamps(
         file: Path, threshold: float = DEFAULT_THRESHOLD, min_speech_duration_ms: int = 250, 
         max_speech_duration_s: float = float('inf'), min_silence_duration_ms: int = 100, 
         window_size_samples: int = 512, speech_pad_ms: int = 30, calculate_stats: bool = False):
@@ -135,10 +135,17 @@ def timestamps_seconds(
         print(f"{start}s,{end}s", end=' ')
 
 @app.command()
-def timestamps_smart_speed(
+def auto_editor_smart_set_speed_for_range(
         file: Path, threshold: float = DEFAULT_THRESHOLD, min_speech_duration_ms: int = 250, 
         max_speech_duration_s: float = float('inf'), min_silence_duration_ms: int = 100, 
         window_size_samples: int = 512, speech_pad_ms: int = 30, calculate_stats: bool = False):
+    """
+    The output of this command can be fed to auto editor with --set-speed-for-range.
+
+    It calculates speeds such that there can't be more than 1s of no-speech. For shorter
+    non-speech regions we first have an exponential function, and then a constant function,
+    until we hit the limit where we need to shorten the audio to not have more than 1s of no-speech.
+    """
     
     speech_timestamps = timestamps(file, threshold, min_speech_duration_ms, max_speech_duration_s, min_silence_duration_ms,
                window_size_samples, speech_pad_ms, calculate_stats)
@@ -150,7 +157,8 @@ def timestamps_smart_speed(
         if i > 0:
             silent_region_end = start
             silent_region_start = speech_timestamps[i-1]['end']
-            speed = max(6, (silent_region_end - silent_region_start))
+            region_length = silent_region_end - silent_region_start
+            speed = min(1 + region_length + region_length**2, max(6, region_length))
             print(f"{speed},{silent_region_start}s,{silent_region_end}s", end=' ')
 
 def main():

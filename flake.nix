@@ -58,8 +58,26 @@
       let pkgs = nixpkgs.legacyPackages.${system}; in
       {
         packages = rec {
-          vad = pkgs.callPackage ./app.nix { lib = pkgs.lib; python3Packages = pkgs.python3Packages; };
-          default = vad;
+          silero-vad = pkgs.python3Packages.buildPythonPackage rec {
+            pname = "vad";
+            version = "0.0.1";
+            pyproject = true;
+            src = ./.;
+            build-system = with pkgs.python3Packages; [
+                setuptools
+                wheel
+            ];
+            dependencies = with pkgs.python3Packages; [
+              typer
+              rich
+              torch
+              torchaudio
+            ];
+            pythonImportsCheck = [
+              "vad"
+            ];
+          };
+          default = silero-vad;
         };
         devShells = {
           default = pkgs.mkShell {
